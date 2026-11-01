@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: ai_career_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ai_career_network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: ai_career_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - chroma_data:/app/chroma_db
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/ai_career_assistant
+      - CHROMA_DB_PATH=/app/chroma_db
+      - HUGGINGFACEHUB_API_TOKEN=${HUGGINGFACEHUB_API_TOKEN}
+      - JWT_SECRET=${JWT_SECRET:-supersecretportfoliojwtkey123}
+      - ENVIRONMENT=development
+    depends_on:
+      - mongodb
+    networks:
+      - ai_career_network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: ai_career_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - ai_career_network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  chroma_data:
+
+networks:
+  ai_career_network:
+    driver: bridge
